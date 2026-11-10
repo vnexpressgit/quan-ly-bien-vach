@@ -51,22 +51,24 @@ Mỗi chi tiết biển báo bao gồm đầy đủ 6 trường thông tin:
 
 ```text
 quan-ly-bien-vach/
-├── anh/                                   # 540 file ảnh quy chuẩn trích xuất từ QCVN 41:2019/BGTVT
+├── public/                                # Thư mục Static Files được Vercel và máy chủ phục vụ trực tiếp
+│   ├── index.html                         # Giao diện SPA chuẩn phong cách VnExpress CMS
+│   ├── style.css                          # Bộ nhận diện giao diện VnExpress CMS
+│   ├── app.js                             # Xử lý tương tác, bulk edit, live search
+│   └── anh/                               # 540 file ảnh quy chuẩn trích xuất từ QCVN 41:2019/BGTVT
+├── api/
+│   └── index.js                           # Vercel Serverless Function & RESTful API Handler
+├── data/
+│   ├── db.json                            # Database JSON lưu trữ 9 nhóm, 540 biển, 600 câu hỏi
+│   └── seed.js                            # Script khởi tạo & đồng bộ dữ liệu
 ├── demo-giao-dien-quan-ly-nhom-bien/      # Ảnh chụp màn hình giao diện (Screenshots 4K/HD)
 │   ├── 01_danh_sach_nhom_bien_bao.png
 │   ├── 02_sua_nhom_bulk_editor.png
 │   ├── 03_sua_nhom_autocomplete_link.png
 │   ├── 04_them_nhom_moi_bulk_upload.png
 │   └── 05_xac_nhan_xoa_nhom_modal.png
-├── cms-quan-ly-nhom-bien/                 # Ứng dụng Web CMS (Zero external dependencies)
-│   ├── server.js                          # Node.js HTTP Server & RESTful API
-│   ├── data/
-│   │   ├── db.json                        # Database JSON lưu trữ 9 nhóm, 540 biển, 600 câu hỏi
-│   │   └── seed.js                        # Script khởi tạo & đồng bộ dữ liệu
-│   └── public/
-│       ├── index.html                     # Giao diện SPA chuẩn phong cách VnExpress CMS
-│       ├── style.css                      # Bộ nhận diện giao diện VnExpress CMS
-│       └── app.js                         # Xử lý tương tác, bulk edit, live search
+├── server.js                              # Máy chủ Node.js phát triển cục bộ (Local Server)
+├── vercel.json                            # Cấu hình tự động định tuyến Vercel Serverless & Static
 ├── QCVN41_2019_-Bien-bao-hieu-duong-bo.doc # File văn bản gốc Quy chuẩn kỹ thuật quốc gia
 ├── package.json
 └── README.md
@@ -76,20 +78,19 @@ quan-ly-bien-vach/
 
 ## ⚡ Hướng dẫn cài đặt & Khởi chạy
 
-### Yêu cầu hệ thống:
-- [Node.js](https://nodejs.org/) phiên bản 16 trở lên.
-- Không yêu cầu cài đặt thêm bất kỳ thư viện ngoài nào (`zero dependencies`).
-
-### Khởi chạy ứng dụng:
+### 1. Khởi chạy cục bộ (Localhost):
+Yêu cầu hệ thống: [Node.js](https://nodejs.org/) phiên bản 16 trở lên (Zero external dependencies).
 
 ```bash
-# 1. Di chuyển vào thư mục dự án
-cd quan-ly-bien-vach
-
-# 2. Khởi động server
+# Khởi động máy chủ cục bộ
 npm start
 # hoặc
-node cms-quan-ly-nhom-bien/server.js
+node server.js
 ```
-
 Truy cập ứng dụng tại trình duyệt: **`http://localhost:3000`**
+
+### 2. Triển khai lên Vercel:
+Dự án đã tích hợp sẵn file cấu hình `vercel.json` và cấu trúc chuẩn cho Vercel Serverless:
+- Thư mục `public/` chứa toàn bộ frontend tĩnh và 540 ảnh biển báo được Vercel CDN phân phối toàn cầu.
+- Thư mục `api/index.js` tự động xử lý toàn bộ các API `/api/groups`, `/api/signs/all`, `/api/questions/search` dưới dạng Serverless Functions.
+- Mỗi khi push code lên GitHub, Vercel sẽ tự động build và deploy trong vài giây.
