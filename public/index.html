@@ -22,6 +22,18 @@
     </div>
   </header>
 
+  <!-- Navigation Module Switcher Tabs -->
+  <div class="nav-module-tabs">
+    <button class="nav-tab active" id="tab-groups" onclick="App.navigate('list')">
+      <span>📁</span> Quản lý Nhóm biển báo
+      <span class="badge-pill" id="badge-groups-count">9 nhóm</span>
+    </button>
+    <button class="nav-tab" id="tab-items" onclick="App.navigate('items')">
+      <span>🏷️</span> Quản lý Chi tiết Biển & Vạch (Từng item riêng)
+      <span class="badge-pill" id="badge-items-count">540 biển</span>
+    </button>
+  </div>
+
   <!-- Sub Header / Global Action Toolbar -->
   <div class="toolbar-bar" id="global-toolbar">
     <div class="toolbar-left">
@@ -77,8 +89,8 @@
                 <span>▼</span> Driving Test
                 <ul style="list-style:none; padding-left:10px; margin-top:3px;">
                   <li>• 600 câu hỏi lý thuyết</li>
-                  <li class="active" onclick="App.navigate('list')">• Quản lý Nhóm biển báo</li>
-                  <li>• Quản lý Chi tiết Biển & Vạch</li>
+                  <li id="sidebar-nav-groups" class="active" onclick="App.navigate('list')" style="cursor:pointer;">• Quản lý Nhóm biển báo</li>
+                  <li id="sidebar-nav-items" onclick="App.navigate('items')" style="cursor:pointer;">• Quản lý Chi tiết Biển & Vạch</li>
                 </ul>
               </li>
               <li>Sheet</li>
@@ -297,6 +309,172 @@
         </div>
       </section>
 
+      <!-- ======================================================== -->
+      <!-- VIEW 4: DANH SÁCH CHI TIẾT BIỂN / VẠCH RIÊNG (TỪNG ITEM) -->
+      <!-- ======================================================== -->
+      <section id="view-item-list" style="display:none;">
+        <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:4px; padding:10px 14px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <button class="btn-primary-green" onclick="App.openCreateSingleItem()">
+              <span style="font-size:14px; font-weight:bold;">+</span> Tạo chi tiết biển mới
+            </button>
+            <span style="font-weight:bold; margin-left:8px;">Nhóm:</span>
+            <select id="filter-individual-group" style="width:210px; padding:3px 6px;" onchange="App.filterItemsList()">
+              <option value="">-- Tất cả nhóm biển/vạch --</option>
+              <!-- Populated dynamically -->
+            </select>
+            <span style="font-weight:bold;">Tìm kiếm:</span>
+            <input type="text" id="search-individual-input" placeholder="Tên biển, mã hiệu, title SEO..." style="width:230px;" oninput="App.debounceFilterItems()" />
+            <button class="btn-classic" onclick="App.filterItemsList()">Search</button>
+          </div>
+          <div style="font-weight:bold; font-size:12.5px; color:#333;" id="items-stats-text">
+            Đang tải dữ liệu chi tiết...
+          </div>
+        </div>
+
+        <table class="vne-table" id="table-individual-items">
+          <thead>
+            <tr>
+              <th style="width:35px; text-align:center;">No.</th>
+              <th style="width:55px; text-align:center;">Ảnh</th>
+              <th style="width:85px; text-align:center;">Mã hiệu</th>
+              <th>Tên chi tiết biển báo / Báo hiệu</th>
+              <th style="width:160px;">Nhóm trực thuộc</th>
+              <th>Title biển (SEO Title)</th>
+              <th style="width:105px; text-align:center;">Biển liên quan</th>
+              <th style="width:105px; text-align:center;">600 Câu hỏi</th>
+              <th style="width:75px; text-align:center;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-individual-items">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-wrap" id="pagination-individual-items">
+          <div style="color:#666;" id="pagination-info-text">Hiển thị...</div>
+          <div class="pagination-pages" id="pagination-buttons">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <div style="margin-top:14px; background:#f4f9fd; border:1px solid #bce0fd; border-radius:4px; padding:10px 14px; font-size:11.5px; line-height:1.6; color:#0c5460;">
+          <strong>💡 Dành cho BTV:</strong>
+          <ul style="padding-left:18px; margin-top:4px;">
+            <li>Tính năng quản lý từng item riêng lẻ cho phép BTV tra cứu nhanh, sửa riêng lẻ một biển báo bất kỳ mà không cần vào chế độ biên tập hàng loạt của cả nhóm.</li>
+            <li>Bấm icon <strong>Bút chì (✏️)</strong> để mở giao diện chỉnh sửa chi tiết của 1 biển (sửa tên, ảnh, title, quy chuẩn, liên kết biển & 600 câu hỏi lý thuyết).</li>
+            <li>Bấm icon <strong>Xoá (❌)</strong> để loại bỏ chi tiết biển này khỏi hệ thống.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- VIEW 5: BIÊN TẬP 1 CHI TIẾT BIỂN / VẠCH RIÊNG -->
+      <!-- ======================================================== -->
+      <section id="view-single-item-editor" style="display:none;">
+        <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:4px; padding:10px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn-classic" onclick="App.navigate('items')">
+              <span>&lt;&lt;</span> Danh sách Chi tiết Biển
+            </button>
+            <span style="color:#666;">|</span>
+            <strong style="color:#bd081c; font-size:14px;" id="single-editor-header-title">Biên tập Chi tiết Biển</strong>
+            <span class="badge-status" id="single-editor-badge-id">Mã: ...</span>
+          </div>
+          <div>
+            <button class="btn-classic" onclick="App.navigate('items')">Hủy bỏ</button>
+            <button class="btn-primary-red" style="margin-left:8px; padding:6px 20px; font-size:12.5px;" onclick="App.saveSingleItem()">
+              💾 LƯU CHI TIẾT BIỂN NÀY
+            </button>
+          </div>
+        </div>
+
+        <div class="single-item-grid">
+          <!-- Left: Image column -->
+          <div class="single-item-img-card">
+            <label style="font-weight:bold; display:block; margin-bottom:8px; font-size:12.5px;">Ảnh biển / Báo hiệu:</label>
+            <img src="/anh/default.png" class="single-item-img-large" id="single-img-preview" alt="Preview" />
+            <div>
+              <button type="button" class="btn-classic" style="width:100%; margin-bottom:8px;" onclick="document.getElementById('single-file-input').click()">
+                📷 Chọn ảnh mới từ máy
+              </button>
+              <input type="file" id="single-file-input" accept="image/*" style="display:none;" onchange="App.handleSingleItemImage(this.files)" />
+              <input type="text" id="single-img-url" placeholder="URL ảnh (/anh/...)" style="width:100%; font-size:11px;" oninput="document.getElementById('single-img-preview').src = this.value" />
+            </div>
+            <div style="margin-top:14px; font-size:11px; color:#888; text-align:left; line-height:1.4;">
+              💡 <em>Định dạng hỗ trợ: JPEG, PNG, SVG chuẩn QCVN 41:2019/BGTVT.</em>
+            </div>
+          </div>
+
+          <!-- Right: Detailed fields -->
+          <div class="single-item-fields">
+            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:12px;">
+              <div>
+                <label style="font-weight:bold; display:block; margin-bottom:3px;">Tên chi tiết biển báo / Báo hiệu: <span style="color:#c00;">*</span></label>
+                <input type="text" id="single-item-name" placeholder="Ví dụ: Hình B.1 - Biển số P.101 - Đường cấm" style="width:100%; font-weight:bold; font-size:13px; color:#004080;" />
+              </div>
+              <div>
+                <label style="font-weight:bold; display:block; margin-bottom:3px;">Mã hiệu biển:</label>
+                <input type="text" id="single-item-code" placeholder="Ví dụ: P.101" style="width:100%; font-weight:bold;" />
+              </div>
+            </div>
+
+            <div>
+              <label style="font-weight:bold; display:block; margin-bottom:3px;">Nhóm trực thuộc: <span style="color:#c00;">*</span></label>
+              <select id="single-item-group-select" style="width:100%; padding:5px 8px; font-size:12.5px;">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <div>
+              <label style="font-weight:bold; display:block; margin-bottom:3px; color:#bd081c;">Title biển (Tiêu đề SEO / Hiển thị chi tiết):</label>
+              <input type="text" id="single-item-title" placeholder="Ví dụ: Biển số P.101 - Đường cấm: Ý nghĩa và Quy chuẩn áp dụng mới nhất" style="width:100%; border-color:#d49898;" />
+            </div>
+
+            <div>
+              <label style="font-weight:bold; display:block; margin-bottom:3px;">Nội dung text (Quy chuẩn kỹ thuật & Ý nghĩa sử dụng):</label>
+              <textarea id="single-item-content" rows="4" placeholder="Nhập quy chuẩn kỹ thuật, vị trí cắm biển và hướng dẫn chấp hành theo QCVN 41:2019/BGTVT..." style="width:100%; resize:vertical;"></textarea>
+            </div>
+
+            <!-- Smart Link 1: Các biển liên quan -->
+            <div style="background:#fefbf4; border:1px solid #f6e0b5; border-radius:4px; padding:10px 12px;">
+              <label style="font-weight:bold; font-size:12px; color:#b45309; display:block; margin-bottom:6px;">
+                ⚠️ Các biển liên quan (dễ gây nhầm lẫn):
+              </label>
+              <div class="tags-wrap" id="single-tags-signs">
+                <!-- Tag badges -->
+                <div class="autocomplete-container">
+                  <button type="button" class="btn-add-tag" onclick="App.openSingleSignAutocomplete()">+ Thêm biển liên quan ▼</button>
+                  <div class="autocomplete-dropdown" id="single-dropdown-sign" style="display:none;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Smart Link 2: 600 Câu hỏi lý thuyết liên quan -->
+            <div style="background:#f4fbf6; border:1px solid #b7ebd0; border-radius:4px; padding:10px 12px;">
+              <label style="font-weight:bold; font-size:12px; color:#107c41; display:block; margin-bottom:6px;">
+                📘 Các câu hỏi lý thuyết liên quan (kho 600 câu sát hạch lái xe):
+              </label>
+              <div class="tags-wrap" id="single-tags-questions">
+                <!-- Tag badges -->
+                <div class="autocomplete-container">
+                  <button type="button" class="btn-add-tag" onclick="App.openSingleQuestionAutocomplete()">+ Liên kết câu hỏi lý thuyết ▼</button>
+                  <div class="autocomplete-dropdown" id="single-dropdown-question" style="display:none;"></div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px; border-top:1px solid #eee; padding-top:12px;">
+              <button class="btn-classic" onclick="App.navigate('items')">Hủy bỏ</button>
+              <button class="btn-primary-red" style="padding:7px 24px; font-size:13px;" onclick="App.saveSingleItem()">
+                💾 LƯU CHI TIẾT BIỂN NÀY
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -370,6 +548,35 @@
         <button class="btn-primary-red" style="padding:6px 18px; font-size:12px;" onclick="App.confirmDeleteGroup()">
           🗑️ Đồng ý xoá (Xoá nhóm & tất cả biển con)
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: XÁC NHẬN XOÁ 1 CHI TIẾT BIỂN / VẠCH RIÊNG -->
+  <!-- ======================================================== -->
+  <div class="modal-overlay" id="modal-delete-single-item" style="display:none;">
+    <div class="modal-box" style="width:480px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:8px; color:#c00;">
+          <span style="font-size:18px;">⚠️</span>
+          <span>Xác nhận xoá Chi tiết Biển / Vạch</span>
+        </div>
+        <span style="cursor:pointer; font-size:18px; color:#666;" onclick="App.closeDeleteSingleModal()">×</span>
+      </div>
+      <div class="modal-body">
+        <div style="font-size:13.5px; font-weight:bold; color:#111; line-height:1.5; margin-bottom:12px;">
+          Bạn có chắc chắn muốn xoá vĩnh viễn chi tiết biển/vạch này khỏi hệ thống?
+        </div>
+        <div style="background:#fff5f5; border:1px solid #fed7d7; border-radius:4px; padding:10px 14px;">
+          <div>Tên chi tiết: <strong style="color:#c53030;" id="modal-delete-item-name">...</strong></div>
+          <div style="margin-top:4px; font-size:11.5px; color:#666;">ID: <code id="modal-delete-item-id">...</code></div>
+          <div style="margin-top:6px; font-size:11.5px; color:#888;">⚠️ Lưu ý: Khi xoá, số lượng biển trong nhóm trực thuộc sẽ tự động giảm đi 1.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-classic" onclick="App.closeDeleteSingleModal()">Hủy bỏ</button>
+        <button class="btn-primary-red" onclick="App.executeDeleteSingleItem()">🗑️ Đồng ý xoá chi tiết</button>
       </div>
     </div>
   </div>

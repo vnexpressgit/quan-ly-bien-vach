@@ -47,6 +47,15 @@ Mỗi chi tiết biển báo bao gồm đầy đủ 6 trường thông tin:
 
 ---
 
+### 4. Quản lý từng Chi tiết Biển / Vạch riêng (Single Item CRUD)
+Bên cạnh chế độ sửa hàng loạt theo nhóm, hệ thống cung cấp màn hình quản lý chuyên biệt cho từng chi tiết biển/vạch riêng lẻ:
+- **Tra cứu & Lọc nhanh:** Bộ lọc theo nhóm trực thuộc, ô tìm kiếm thời gian thực (tên biển, mã hiệu, title SEO, quy chuẩn), phân trang hiển thị thông minh.
+- **Sửa riêng 1 biển (Edit Item):** Giao diện tập trung chỉnh sửa riêng lẻ 1 biển bất kỳ với preview ảnh lớn, nút thay ảnh tức thì, cập nhật title SEO, văn bản quy chuẩn, liên kết biển liên quan và câu hỏi sát hạch trong kho 600 câu.
+- **Thêm mới 1 biển (Create Item):** Nút `[+ Tạo chi tiết biển mới]` cho phép BTV khởi tạo nhanh 1 biển/vạch đơn lẻ và chọn nhóm trực thuộc.
+- **Xoá 1 biển (Delete Item):** Icon ❌ kèm modal xác nhận xoá an toàn, tự động đồng bộ lại số lượng biển trong nhóm.
+
+---
+
 ## 📁 Cấu trúc thư mục
 
 ```text

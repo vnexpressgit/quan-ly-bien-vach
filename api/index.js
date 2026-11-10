@@ -236,6 +236,125 @@ module.exports = async (req, res) => {
       });
     }
 
+    // -------------------------------------------------------------
+    // Individual Sign/Road Marking Item Routes (Quản lý từng Item riêng)
+    // -------------------------------------------------------------
+    const itemMatch = pathname.match(/^\/api\/items\/([a-zA-Z0-9_\-]+)$/);
+
+    // GET /api/items - Listing with search, group filter & pagination
+    if (method === 'GET' && pathname === '/api/items') {
+      const q = (parsedUrl.query.q || '').toString().toLowerCase().trim();
+      const groupId = (parsedUrl.query.groupId || '').toString().trim();
+      const page = parseInt(parsedUrl.query.page) || 1;
+      const limit = parseInt(parsedUrl.query.limit) || 20;
+
+      let filtered = currentDb.items;
+      if (groupId) {
+        filtered = filtered.filter(item => item.groupId === groupId);
+      }
+      if (q) {
+        filtered = filtered.filter(item =>
+          (item.name && item.name.toLowerCase().includes(q)) ||
+          (item.code && item.code.toLowerCase().includes(q)) ||
+          (item.title && item.title.toLowerCase().includes(q)) ||
+          (item.content && item.content.toLowerCase().includes(q))
+        );
+      }
+
+      const total = filtered.length;
+      const totalPages = Math.ceil(total / limit) || 1;
+      const startIndex = (page - 1) * limit;
+      const paginatedItems = filtered.slice(startIndex, startIndex + limit).map(item => {
+        const grp = currentDb.groups.find(g => g.id === item.groupId);
+        return {
+          ...item,
+          groupName: grp ? grp.name : 'Chưa phân nhóm'
+        };
+      });
+
+      return sendJson(res, 200, {
+        items: paginatedItems,
+        total,
+        page,
+        limit,
+        totalPages
+      });
+    }
+
+    // GET /api/items/:id - Get single item
+    if (method === 'GET' && itemMatch) {
+      const itemId = itemMatch[1];
+      const item = currentDb.items.find(i => i.id === itemId);
+      if (!item) return sendJson(res, 404, { error: 'Không tìm thấy chi tiết biển báo' });
+      const grp = currentDb.groups.find(g => g.id === item.groupId);
+      return sendJson(res, 200, { ...item, groupName: grp ? grp.name : '' });
+    }
+
+    // POST /api/items - Create a single item
+    if (method === 'POST' && pathname === '/api/items') {
+      const payload = await parseBody(req);
+      if (!payload.name) return sendJson(res, 400, { error: 'Tên biển báo là bắt buộc' });
+      if (!payload.groupId) return sendJson(res, 400, { error: 'Nhóm trực thuộc là bắt buộc' });
+
+      const newItem = {
+        id: payload.id || `item-${Date.now()}`,
+        groupId: payload.groupId,
+        name: payload.name.trim(),
+        code: payload.code ? payload.code.trim() : '',
+        image: payload.image || '/anh/default.png',
+        title: payload.title ? payload.title.trim() : (payload.name.trim() + ': Ý nghĩa & Quy chuẩn áp dụng mới nhất'),
+        content: payload.content ? payload.content.trim() : '',
+        related_signs: Array.isArray(payload.related_signs) ? payload.related_signs : [],
+        related_questions: Array.isArray(payload.related_questions) ? payload.related_questions : [],
+        order: currentDb.items.filter(i => i.groupId === payload.groupId).length + 1,
+        created_at: new Date().toISOString().split('T')[0],
+        updated_at: new Date().toISOString().split('T')[0]
+      };
+
+      currentDb.items.unshift(newItem);
+      saveDb();
+      return sendJson(res, 201, { success: true, item: newItem });
+    }
+
+    // PUT /api/items/:id - Update a single item
+    if (method === 'PUT' && itemMatch) {
+      const itemId = itemMatch[1];
+      const payload = await parseBody(req);
+      const itemIndex = currentDb.items.findIndex(i => i.id === itemId);
+      if (itemIndex === -1) return sendJson(res, 404, { error: 'Không tìm thấy chi tiết biển báo' });
+
+      currentDb.items[itemIndex] = {
+        ...currentDb.items[itemIndex],
+        name: payload.name !== undefined ? payload.name.trim() : currentDb.items[itemIndex].name,
+        code: payload.code !== undefined ? payload.code.trim() : currentDb.items[itemIndex].code,
+        groupId: payload.groupId !== undefined ? payload.groupId : currentDb.items[itemIndex].groupId,
+        image: payload.image !== undefined ? payload.image : currentDb.items[itemIndex].image,
+        title: payload.title !== undefined ? payload.title.trim() : currentDb.items[itemIndex].title,
+        content: payload.content !== undefined ? payload.content.trim() : currentDb.items[itemIndex].content,
+        related_signs: Array.isArray(payload.related_signs) ? payload.related_signs : currentDb.items[itemIndex].related_signs,
+        related_questions: Array.isArray(payload.related_questions) ? payload.related_questions : currentDb.items[itemIndex].related_questions,
+        updated_at: new Date().toISOString().split('T')[0]
+      };
+
+      saveDb();
+      return sendJson(res, 200, { success: true, item: currentDb.items[itemIndex] });
+    }
+
+    // DELETE /api/items/:id - Delete a single item
+    if (method === 'DELETE' && itemMatch) {
+      const itemId = itemMatch[1];
+      const itemIndex = currentDb.items.findIndex(i => i.id === itemId);
+      if (itemIndex === -1) return sendJson(res, 404, { error: 'Không tìm thấy chi tiết biển báo' });
+
+      const deletedItem = currentDb.items.splice(itemIndex, 1)[0];
+      saveDb();
+      return sendJson(res, 200, {
+        success: true,
+        message: `Đã xoá thành công chi tiết biển "${deletedItem.name}".`,
+        deletedItem
+      });
+    }
+
     // GET /api/signs/all
     if (method === 'GET' && pathname === '/api/signs/all') {
       const compactList = currentDb.items.map(i => ({

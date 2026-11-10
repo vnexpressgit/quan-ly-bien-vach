@@ -1,14 +1,18 @@
-// Frontend Application Logic for VnExpress CMS - Quản lý Nhóm Biển Báo
+// Frontend Application Logic for VnExpress CMS - Quản lý Nhóm Biển Báo & Chi tiết Biển/Vạch
 const App = {
   state: {
     groups: [],
     currentGroup: null,
     currentItems: [],
     allSigns: [],
-    view: 'list', // 'list' | 'edit' | 'create'
+    view: 'list', // 'list' | 'edit' | 'create' | 'items' | 'item-edit'
     modifiedCount: 0,
     deleteTargetGroupId: null,
-    activeDropdown: null // { itemId, type: 'sign' | 'question' }
+    deleteTargetItemId: null,
+    activeDropdown: null, // { itemId, type: 'sign' | 'question' }
+    itemsData: { items: [], total: 0, page: 1, limit: 20, totalPages: 1 },
+    currentSingleItem: null,
+    debounceTimer: null
   },
 
   // Initialize
@@ -16,6 +20,7 @@ const App = {
     this.setupGlobalListeners();
     await this.loadAllSigns();
     await this.loadGroups();
+    await this.loadItems(1);
   },
 
   setupGlobalListeners() {
@@ -74,9 +79,30 @@ const App = {
     try {
       this.state.groups = await this.fetchJson('/api/groups');
       this.renderGroupList();
+      this.populateGroupDropdowns();
     } catch (err) {
       document.getElementById('group-stats-text').innerText = 'Không thể tải danh sách nhóm';
     }
+  },
+
+  populateGroupDropdowns() {
+    const filterSelect = document.getElementById('filter-individual-group');
+    const editSelect = document.getElementById('single-item-group-select');
+
+    if (filterSelect) {
+      const currentVal = filterSelect.value;
+      filterSelect.innerHTML = `<option value="">-- Tất cả nhóm biển/vạch (${this.state.groups.length} nhóm) --</option>` +
+        this.state.groups.map(g => `<option value="${g.id}">${this.escapeHtml(g.name)} (${g.item_count || 0})</option>`).join('');
+      if (currentVal) filterSelect.value = currentVal;
+    }
+
+    if (editSelect) {
+      editSelect.innerHTML = `<option value="">-- Chọn nhóm trực thuộc --</option>` +
+        this.state.groups.map(g => `<option value="${g.id}">${this.escapeHtml(g.name)}</option>`).join('');
+    }
+
+    const badgeGroups = document.getElementById('badge-groups-count');
+    if (badgeGroups) badgeGroups.innerText = `${this.state.groups.length} nhóm`;
   },
 
   // Load All Signs for quick linking
@@ -766,7 +792,26 @@ const App = {
     document.getElementById('view-group-list').style.display = viewName === 'list' ? 'block' : 'none';
     document.getElementById('view-bulk-editor').style.display = viewName === 'edit' ? 'block' : 'none';
     document.getElementById('view-create-group').style.display = viewName === 'create' ? 'block' : 'none';
+    document.getElementById('view-item-list').style.display = viewName === 'items' ? 'block' : 'none';
+    document.getElementById('view-single-item-editor').style.display = viewName === 'item-edit' ? 'block' : 'none';
+    document.getElementById('global-toolbar').style.display = viewName === 'list' ? 'flex' : 'none';
     document.getElementById('bottom-pin-bar').style.display = (viewName === 'edit' || viewName === 'create') ? 'flex' : 'none';
+
+    // Tabs & Sidebar highlights
+    const isGroups = (viewName === 'list' || viewName === 'edit' || viewName === 'create');
+    const tabGroups = document.getElementById('tab-groups');
+    const tabItems = document.getElementById('tab-items');
+    const sideGroups = document.getElementById('sidebar-nav-groups');
+    const sideItems = document.getElementById('sidebar-nav-items');
+
+    if (tabGroups && tabItems) {
+      tabGroups.className = `nav-tab ${isGroups ? 'active' : ''}`;
+      tabItems.className = `nav-tab ${!isGroups ? 'active' : ''}`;
+    }
+    if (sideGroups && sideItems) {
+      sideGroups.className = isGroups ? 'active' : '';
+      sideItems.className = !isGroups ? 'active' : '';
+    }
 
     const titleEl = document.getElementById('page-title-text');
     if (viewName === 'list') {
@@ -776,9 +821,471 @@ const App = {
     } else if (viewName === 'create') {
       titleEl.innerText = 'Create New Sign Group - Thêm nhóm biển báo mới';
       this.updatePinBar('Đang tạo Nhóm biển báo mới');
+    } else if (viewName === 'items') {
+      titleEl.innerText = 'List Individual Signs - Quản lý từng Chi tiết Biển / Vạch riêng';
+    } else if (viewName === 'item-edit') {
+      titleEl.innerText = 'Edit Sign Item - Biên tập Chi tiết Biển / Vạch';
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  },
+
+  // -------------------------------------------------------------
+  // Quản lý từng Item Biển/Vạch riêng (View 4 & View 5)
+  // -------------------------------------------------------------
+  async loadItems(page = 1) {
+    const groupId = (document.getElementById('filter-individual-group')?.value || '').trim();
+    const q = (document.getElementById('search-individual-input')?.value || '').trim();
+
+    try {
+      const url = `/api/items?page=${page}&limit=20&groupId=${encodeURIComponent(groupId)}&q=${encodeURIComponent(q)}`;
+      const res = await this.fetchJson(url);
+      this.state.itemsData = res;
+      this.renderItemList();
+    } catch (e) {
+      console.error('Lỗi tải danh sách chi tiết biển:', e);
+    }
+  },
+
+  renderItemList() {
+    const { items, total, page, limit, totalPages } = this.state.itemsData;
+    const tbody = document.getElementById('tbody-individual-items');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const statsEl = document.getElementById('items-stats-text');
+    if (statsEl) {
+      statsEl.innerHTML = `Total: <span style="color:#bd081c; font-size:14px;">${total} chi tiết biển/vạch</span>`;
+    }
+
+    const badgeItems = document.getElementById('badge-items-count');
+    if (badgeItems) badgeItems.innerText = `${total} biển`;
+
+    if (!items || items.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:30px; color:#888;">Không tìm thấy chi tiết biển/vạch nào phù hợp với bộ lọc</td></tr>`;
+      this.renderPagination(0, 1, 1);
+      return;
+    }
+
+    const startIndex = (page - 1) * limit;
+    items.forEach((item, idx) => {
+      const tr = document.createElement('tr');
+      const relatedSignsCount = (item.related_signs || []).length;
+      const relatedQuestionsCount = (item.related_questions || []).length;
+
+      tr.innerHTML = `
+        <td style="text-align:center; font-weight:bold;">${startIndex + idx + 1}</td>
+        <td style="text-align:center;">
+          <img src="${item.image || '/anh/default.png'}" alt="${this.escapeHtml(item.name)}" style="width:40px; height:40px; object-fit:contain; border:1px solid #ddd; background:#fff; border-radius:3px; padding:2px;" onerror="this.src='/anh/default.png'" />
+        </td>
+        <td style="text-align:center;">
+          <span style="background:#e8edf3; color:#004080; font-weight:bold; padding:2px 6px; border-radius:3px; font-size:11px;">
+            ${this.escapeHtml(item.code || '-')}
+          </span>
+        </td>
+        <td>
+          <a href="javascript:void(0)" onclick="App.openSingleItemEditor('${item.id}')" style="color:#004080; font-weight:bold; text-decoration:none; font-size:12.5px;">
+            ${this.escapeHtml(item.name)}
+          </a>
+        </td>
+        <td>
+          <span style="background:#eaf7ea; border:1px solid #c2e2c2; color:#1b631b; padding:2px 6px; border-radius:3px; font-size:11px; display:inline-block; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+            ${this.escapeHtml(item.groupName || 'Chưa gán')}
+          </span>
+        </td>
+        <td style="color:#555; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${this.escapeHtml(item.title || '')}">
+          ${this.escapeHtml(item.title || item.name || '')}
+        </td>
+        <td style="text-align:center;">
+          <span class="tag-badge tag-sign" style="font-size:10.5px; padding:1px 6px;">
+            ⚠️ ${relatedSignsCount} biển
+          </span>
+        </td>
+        <td style="text-align:center;">
+          <span class="tag-badge tag-question" style="font-size:10.5px; padding:1px 6px;">
+            📘 ${relatedQuestionsCount} câu
+          </span>
+        </td>
+        <td style="text-align:center;">
+          <span class="icon-edit" title="Sửa riêng chi tiết biển này" onclick="App.openSingleItemEditor('${item.id}')">✏️</span>
+          <span class="icon-delete" title="Xoá chi tiết biển này" onclick="App.promptDeleteSingleItem('${item.id}', '${this.escapeHtml(item.name)}')">❌</span>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    this.renderPagination(total, page, totalPages);
+  },
+
+  renderPagination(total, page, totalPages) {
+    const infoEl = document.getElementById('pagination-info-text');
+    const buttonsEl = document.getElementById('pagination-buttons');
+    if (!infoEl || !buttonsEl) return;
+
+    if (total === 0) {
+      infoEl.innerText = 'Không có kết quả nào';
+      buttonsEl.innerHTML = '';
+      return;
+    }
+
+    const start = (page - 1) * 20 + 1;
+    const end = Math.min(page * 20, total);
+    infoEl.innerHTML = `Hiển thị <strong>${start} - ${end}</strong> trong tổng số <strong>${total}</strong> chi tiết`;
+
+    let html = '';
+    if (page > 1) {
+      html += `<button class="btn-classic" onclick="App.loadItems(${page - 1})">&lt;&lt; Trước</button>`;
+    }
+
+    const maxDisplayPages = 7;
+    let startPage = Math.max(1, page - 3);
+    let endPage = Math.min(totalPages, startPage + maxDisplayPages - 1);
+    if (endPage - startPage < maxDisplayPages - 1) {
+      startPage = Math.max(1, endPage - maxDisplayPages + 1);
+    }
+
+    if (startPage > 1) {
+      html += `<button class="btn-classic" onclick="App.loadItems(1)">1</button>`;
+      if (startPage > 2) html += `<span>...</span>`;
+    }
+
+    for (let p = startPage; p <= endPage; p++) {
+      html += `<button class="btn-classic ${p === page ? 'active' : ''}" onclick="App.loadItems(${p})">${p}</button>`;
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) html += `<span>...</span>`;
+      html += `<button class="btn-classic" onclick="App.loadItems(${totalPages})">${totalPages}</button>`;
+    }
+
+    if (page < totalPages) {
+      html += `<button class="btn-classic" onclick="App.loadItems(${page + 1})">Sau &gt;&gt;</button>`;
+    }
+
+    buttonsEl.innerHTML = html;
+  },
+
+  filterItemsList() {
+    this.loadItems(1);
+  },
+
+  debounceFilterItems() {
+    clearTimeout(this.state.debounceTimer);
+    this.state.debounceTimer = setTimeout(() => {
+      this.loadItems(1);
+    }, 300);
+  },
+
+  // Open Create Single Item
+  openCreateSingleItem() {
+    this.state.currentSingleItem = {
+      isNew: true,
+      name: '',
+      code: '',
+      groupId: this.state.groups[0] ? this.state.groups[0].id : '',
+      image: '/anh/default.png',
+      title: '',
+      content: '',
+      related_signs: [],
+      related_questions: []
+    };
+
+    document.getElementById('single-editor-header-title').innerText = 'Tạo Chi tiết Biển / Vạch Mới';
+    document.getElementById('single-editor-badge-id').innerText = 'Mã mới';
+    document.getElementById('single-item-name').value = '';
+    document.getElementById('single-item-code').value = '';
+    document.getElementById('single-item-group-select').value = this.state.currentSingleItem.groupId;
+    document.getElementById('single-item-title').value = '';
+    document.getElementById('single-item-content').value = '';
+    document.getElementById('single-img-preview').src = '/anh/default.png';
+    document.getElementById('single-img-url').value = '';
+
+    this.renderSingleItemTags();
+    this.navigate('item-edit');
+  },
+
+  // Open Edit Single Item
+  async openSingleItemEditor(itemId) {
+    try {
+      const item = await this.fetchJson(`/api/items/${itemId}`);
+      this.state.currentSingleItem = item;
+
+      document.getElementById('single-editor-header-title').innerText = `Biên tập Chi tiết: ${item.name}`;
+      document.getElementById('single-editor-badge-id').innerText = `Mã: ${item.code || item.id}`;
+      document.getElementById('single-item-name').value = item.name || '';
+      document.getElementById('single-item-code').value = item.code || '';
+      document.getElementById('single-item-group-select').value = item.groupId || '';
+      document.getElementById('single-item-title').value = item.title || '';
+      document.getElementById('single-item-content').value = item.content || '';
+      document.getElementById('single-img-preview').src = item.image || '/anh/default.png';
+      document.getElementById('single-img-url').value = item.image || '';
+
+      this.renderSingleItemTags();
+      this.navigate('item-edit');
+    } catch (e) {
+      this.showToast('Không thể tải thông tin chi tiết biển', 'error');
+    }
+  },
+
+  renderSingleItemTags() {
+    const item = this.state.currentSingleItem;
+    if (!item) return;
+
+    // Related signs
+    const signsWrap = document.getElementById('single-tags-signs');
+    if (signsWrap) {
+      const tagsHtml = (item.related_signs || []).map((s, idx) => `
+        <span class="tag-badge tag-sign">
+          🛑 ${this.escapeHtml(s)}
+          <span class="tag-close" onclick="App.removeSingleSignTag(${idx})">×</span>
+        </span>
+      `).join('');
+      signsWrap.innerHTML = `
+        ${tagsHtml}
+        <div class="autocomplete-container">
+          <button type="button" class="btn-add-tag" onclick="App.openSingleSignAutocomplete()">+ Thêm biển liên quan ▼</button>
+          <div class="autocomplete-dropdown" id="single-dropdown-sign" style="display:none;"></div>
+        </div>
+      `;
+    }
+
+    // Related questions
+    const questionsWrap = document.getElementById('single-tags-questions');
+    if (questionsWrap) {
+      const qHtml = (item.related_questions || []).map((q, idx) => `
+        <span class="tag-badge tag-question">
+          📘 ${this.escapeHtml(q)}
+          <span class="tag-close" onclick="App.removeSingleQuestionTag(${idx})">×</span>
+        </span>
+      `).join('');
+      questionsWrap.innerHTML = `
+        ${qHtml}
+        <div class="autocomplete-container">
+          <button type="button" class="btn-add-tag" onclick="App.openSingleQuestionAutocomplete()">+ Liên kết câu hỏi lý thuyết ▼</button>
+          <div class="autocomplete-dropdown" id="single-dropdown-question" style="display:none;"></div>
+        </div>
+      `;
+    }
+  },
+
+  removeSingleSignTag(idx) {
+    if (this.state.currentSingleItem && this.state.currentSingleItem.related_signs) {
+      this.state.currentSingleItem.related_signs.splice(idx, 1);
+      this.renderSingleItemTags();
+    }
+  },
+
+  removeSingleQuestionTag(idx) {
+    if (this.state.currentSingleItem && this.state.currentSingleItem.related_questions) {
+      this.state.currentSingleItem.related_questions.splice(idx, 1);
+      this.renderSingleItemTags();
+    }
+  },
+
+  // Save Single Item
+  async saveSingleItem() {
+    const item = this.state.currentSingleItem;
+    if (!item) return;
+
+    const name = document.getElementById('single-item-name').value.trim();
+    const groupId = document.getElementById('single-item-group-select').value;
+    if (!name) {
+      this.showToast('Vui lòng nhập Tên chi tiết biển báo!', 'error');
+      return;
+    }
+    if (!groupId) {
+      this.showToast('Vui lòng chọn Nhóm trực thuộc!', 'error');
+      return;
+    }
+
+    const payload = {
+      name,
+      code: document.getElementById('single-item-code').value.trim(),
+      groupId,
+      title: document.getElementById('single-item-title').value.trim(),
+      content: document.getElementById('single-item-content').value.trim(),
+      image: document.getElementById('single-img-url').value.trim() || '/anh/default.png',
+      related_signs: item.related_signs || [],
+      related_questions: item.related_questions || []
+    };
+
+    try {
+      if (item.isNew) {
+        await this.fetchJson('/api/items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        this.showToast(`✅ Đã tạo thành công chi tiết biển "${name}"!`);
+      } else {
+        await this.fetchJson(`/api/items/${item.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        this.showToast(`💾 Đã cập nhật thành công chi tiết biển "${name}"!`);
+      }
+
+      await this.loadAllSigns();
+      await this.loadGroups();
+      await this.loadItems(this.state.itemsData.page || 1);
+      this.navigate('items');
+    } catch (e) {
+      this.showToast('Lỗi khi lưu chi tiết biển', 'error');
+    }
+  },
+
+  // Single Item Autocomplete Handlers
+  openSingleSignAutocomplete() {
+    this.closeAutocomplete();
+    const dd = document.getElementById('single-dropdown-sign');
+    if (!dd) return;
+    dd.style.display = 'block';
+    dd.innerHTML = `
+      <div class="ac-search">
+        <input type="text" id="ac-input-single-sign" placeholder="🔍 Gõ tên hoặc mã biển liên quan..." autofocus oninput="App.filterSingleSignSuggestions(this.value)" />
+      </div>
+      <ul class="ac-list" id="ac-list-single-sign"></ul>
+      <div style="background:#f4f8fc; border-top:1px solid #e1eaf2; padding:4px 8px; font-size:11px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="color:#666;">Kho 540 biển báo</span>
+        <button type="button" class="btn-classic" style="padding:1px 6px; font-size:11px;" onclick="App.closeAutocomplete()">Đóng</button>
+      </div>
+    `;
+    this.filterSingleSignSuggestions('');
+    const input = document.getElementById('ac-input-single-sign');
+    if (input) input.focus();
+  },
+
+  filterSingleSignSuggestions(query) {
+    const listEl = document.getElementById('ac-list-single-sign');
+    if (!listEl) return;
+    const q = query.toLowerCase().trim();
+    const matches = this.state.allSigns.filter(s =>
+      (!q || s.name.toLowerCase().includes(q) || (s.code && s.code.toLowerCase().includes(q)))
+    ).slice(0, 15);
+
+    if (matches.length === 0) {
+      listEl.innerHTML = `<li style="padding:8px 10px; color:#888;">Không tìm thấy biển nào phù hợp</li>`;
+      return;
+    }
+
+    listEl.innerHTML = matches.map(s => `
+      <li class="ac-item" onclick="App.addSignToSingleItem('${this.escapeHtml(s.name)}')">
+        ➕ <strong>${this.escapeHtml(s.code || '')}</strong>: ${this.escapeHtml(s.name)}
+      </li>
+    `).join('');
+  },
+
+  addSignToSingleItem(signName) {
+    if (!this.state.currentSingleItem) return;
+    if (!this.state.currentSingleItem.related_signs) this.state.currentSingleItem.related_signs = [];
+    if (!this.state.currentSingleItem.related_signs.includes(signName)) {
+      this.state.currentSingleItem.related_signs.push(signName);
+      this.renderSingleItemTags();
+      this.showToast(`Đã liên kết biển "${signName}"`);
+    }
+    this.closeAutocomplete();
+  },
+
+  openSingleQuestionAutocomplete() {
+    this.closeAutocomplete();
+    const dd = document.getElementById('single-dropdown-question');
+    if (!dd) return;
+    dd.style.display = 'block';
+    dd.innerHTML = `
+      <div class="ac-search">
+        <input type="text" id="ac-input-single-question" placeholder="🔍 Gõ số câu hoặc từ khoá (vd: '353', 'ngược chiều')..." autofocus oninput="App.filterSingleQuestionSuggestions(this.value)" />
+      </div>
+      <ul class="ac-list" id="ac-list-single-question"></ul>
+      <div style="background:#f4f8fc; border-top:1px solid #e1eaf2; padding:4px 8px; font-size:11px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="color:#666;">Kho 600 câu hỏi sát hạch</span>
+        <button type="button" class="btn-classic" style="padding:1px 6px; font-size:11px;" onclick="App.closeAutocomplete()">Đóng</button>
+      </div>
+    `;
+    this.filterSingleQuestionSuggestions('');
+    const input = document.getElementById('ac-input-single-question');
+    if (input) input.focus();
+  },
+
+  async filterSingleQuestionSuggestions(query) {
+    const listEl = document.getElementById('ac-list-single-question');
+    if (!listEl) return;
+    try {
+      const matches = await this.fetchJson(`/api/questions/search?q=${encodeURIComponent(query)}`);
+      if (matches.length === 0) {
+        listEl.innerHTML = `<li style="padding:8px 10px; color:#888;">Không tìm thấy câu hỏi nào phù hợp trong 600 câu</li>`;
+        return;
+      }
+      listEl.innerHTML = matches.map(q => `
+        <li class="ac-item" onclick="App.addQuestionToSingleItem('${this.escapeHtml(q.text)}')">
+          ➕ <strong>${this.escapeHtml(q.text)}</strong>
+        </li>
+      `).join('');
+    } catch (e) {
+      listEl.innerHTML = `<li style="padding:8px 10px; color:#c00;">Lỗi khi tìm kiếm câu hỏi</li>`;
+    }
+  },
+
+  addQuestionToSingleItem(questionText) {
+    if (!this.state.currentSingleItem) return;
+    if (!this.state.currentSingleItem.related_questions) this.state.currentSingleItem.related_questions = [];
+    if (!this.state.currentSingleItem.related_questions.includes(questionText)) {
+      this.state.currentSingleItem.related_questions.push(questionText);
+      this.renderSingleItemTags();
+      this.showToast(`Đã liên kết với: ${questionText.substring(0, 40)}...`);
+    }
+    this.closeAutocomplete();
+  },
+
+  // Image Upload for Single Item
+  async handleSingleItemImage(files) {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const uploadRes = await this.fetchJson('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: file.name, data: e.target.result })
+        });
+        document.getElementById('single-img-preview').src = uploadRes.url;
+        document.getElementById('single-img-url').value = uploadRes.url;
+        this.showToast(`Đã tải lên ảnh "${file.name}"`);
+      } catch (err) {
+        this.showToast('Lỗi tải ảnh lên', 'error');
+      }
+    };
+    reader.readAsDataURL(file);
+  },
+
+  // Delete Single Item Modal Handlers
+  promptDeleteSingleItem(itemId, itemName) {
+    this.state.deleteTargetItemId = itemId;
+    document.getElementById('modal-delete-item-name').innerText = itemName;
+    document.getElementById('modal-delete-item-id').innerText = itemId;
+    document.getElementById('modal-delete-single-item').style.display = 'flex';
+  },
+
+  closeDeleteSingleModal() {
+    document.getElementById('modal-delete-single-item').style.display = 'none';
+    this.state.deleteTargetItemId = null;
+  },
+
+  async executeDeleteSingleItem() {
+    const itemId = this.state.deleteTargetItemId;
+    if (!itemId) return;
+
+    try {
+      const res = await this.fetchJson(`/api/items/${itemId}`, { method: 'DELETE' });
+      this.closeDeleteSingleModal();
+      this.showToast(`🗑️ ${res.message || 'Đã xoá chi tiết biển thành công'}`);
+      await this.loadAllSigns();
+      await this.loadGroups();
+      await this.loadItems(this.state.itemsData.page || 1);
+    } catch (err) {
+      this.showToast('Lỗi khi xoá chi tiết biển', 'error');
+    }
   },
 
   updatePinBar(title) {
