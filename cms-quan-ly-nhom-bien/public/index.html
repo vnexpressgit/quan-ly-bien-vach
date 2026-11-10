@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VnExpress CMS - Quản lý Nhóm biển báo & Báo hiệu đường bộ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header class="vne-header">
+    <div class="header-left">
+      <div class="logo-box" onclick="App.navigate('list')">
+        <span class="logo-text"><span class="logo-vn">VN</span><span class="logo-exp">EXPRESS</span></span>
+        <span class="logo-slogan">Báo tiếng Việt nhiều người xem nhất</span>
+      </div>
+      <div class="page-title" id="page-title-text">List Sign Groups - Quản lý Nhóm biển báo & Báo hiệu đường bộ</div>
+    </div>
+    <div class="header-right" style="font-size:12px; color:#666;">
+      Hệ thống Quản trị Nội dung Giao thông (CMS VnExpress) | Server Localhost:3000
+    </div>
+  </header>
+
+  <!-- Sub Header / Global Action Toolbar -->
+  <div class="toolbar-bar" id="global-toolbar">
+    <div class="toolbar-left">
+      <button class="btn-classic" id="btn-create-group" style="background:#eaf7ea; border-color:#5ba35b; color:#1b631b;" onclick="App.navigate('create')">
+        <span style="font-size:14px; font-weight:bold;">+</span> Tạo nhóm mới
+      </button>
+      <span style="margin-left:10px; font-weight:bold;">Tìm kiếm:</span>
+      <input type="text" id="search-group-input" placeholder="Nhập tên nhóm hoặc mã nhóm..." style="width:230px;" oninput="App.filterGroups()" />
+      <span style="font-weight:bold;">Phân loại:</span>
+      <select id="filter-group-type" style="width:160px;" onchange="App.filterGroups()">
+        <option value="">Tất cả loại nhóm</option>
+        <option value="Biển báo giao thông">Biển báo giao thông</option>
+        <option value="Vạch kẻ đường">Vạch kẻ đường</option>
+        <option value="Biển cao tốc">Biển cao tốc</option>
+        <option value="Thiết bị báo hiệu">Thiết bị báo hiệu</option>
+        <option value="Biểu tượng">Biểu tượng</option>
+      </select>
+      <button class="btn-classic" onclick="App.filterGroups()">Search</button>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn-classic" onclick="App.exportCsv()">📥 Xuất danh mục</button>
+      <button class="btn-classic" onclick="App.reload()">🔄 Làm mới</button>
+    </div>
+  </div>
+
+  <!-- App Layout -->
+  <div class="app-container">
+
+    <!-- Sidebar Tree Navigation -->
+    <aside class="vne-sidebar">
+      <div>
+        <div class="sidebar-search-box">
+          <span style="color:#888; margin-right:4px;">🔍</span>
+          <input type="text" placeholder="Tìm chuyên mục..." />
+        </div>
+        <ul class="sidebar-tree">
+          <li>
+            <div class="tree-header"><span>▼</span> <strong>Newsroom</strong></div>
+            <ul class="tree-sub">
+              <li>WMS</li>
+              <li>Content Analytics</li>
+              <li>KPI</li>
+            </ul>
+          </li>
+          <li>
+            <div class="tree-header"><span>▼</span> <strong>Manage Materials</strong></div>
+            <ul class="tree-sub">
+              <li>Địa điểm du lịch</li>
+              <li>Cars</li>
+              <li>Movies</li>
+              <li>Bike</li>
+              <li style="color:#004080; font-weight:bold; margin-top:2px;">
+                <span>▼</span> Driving Test
+                <ul style="list-style:none; padding-left:10px; margin-top:3px;">
+                  <li>• 600 câu hỏi lý thuyết</li>
+                  <li class="active" onclick="App.navigate('list')">• Quản lý Nhóm biển báo</li>
+                  <li>• Quản lý Chi tiết Biển & Vạch</li>
+                </ul>
+              </li>
+              <li>Sheet</li>
+              <li>Laws</li>
+              <li>Football</li>
+            </ul>
+          </li>
+          <li>
+            <div class="tree-header"><span>▼</span> <strong>Internal</strong></div>
+            <ul class="tree-sub">
+              <li>List Subject</li>
+              <li>Help Desk</li>
+            </ul>
+          </li>
+          <li>
+            <div class="tree-header"><span>–</span> <strong>Statistics</strong></div>
+            <ul class="tree-sub">
+              <li>VnExpress Analytics</li>
+            </ul>
+          </li>
+          <li>
+            <div class="tree-header"><span>–</span> <strong>SEO Manager</strong></div>
+            <ul class="tree-sub">
+              <li>Articles</li>
+              <li>Folders</li>
+              <li>Taxonomies</li>
+              <li>Logs Action</li>
+              <li>Summaries</li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+      <div class="sidebar-footer">
+        <div class="user-name">Trungvh9 (Logout)</div>
+        <a href="#">Account Setting</a>
+        <a href="#">Multi select</a>
+      </div>
+    </aside>
+
+    <!-- Main Content Dynamic Views -->
+    <main class="main-content" id="main-view-container">
+      
+      <!-- ======================================================== -->
+      <!-- VIEW 1: DANH SÁCH NHÓM BIỂN BÁO -->
+      <!-- ======================================================== -->
+      <section id="view-group-list">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="font-weight:bold; font-size:13px; color:#333;" id="group-stats-text">
+            Đang tải dữ liệu...
+          </div>
+          <div style="display:flex; gap:3px; align-items:center; font-size:12px;">
+            <button class="btn-classic" style="padding:1px 6px; background:#d4e7f8; font-weight:bold;">1</button>
+            <button class="btn-classic" style="padding:1px 6px;">Next &gt;&gt;</button>
+          </div>
+        </div>
+
+        <table class="vne-table" id="table-groups">
+          <thead>
+            <tr>
+              <th style="width:35px; text-align:center;">No.</th>
+              <th>Tên nhóm biển báo / Báo hiệu</th>
+              <th style="width:130px;">Mã nhóm</th>
+              <th style="width:90px; text-align:center;">Số lượng</th>
+              <th>Mô tả tóm tắt quy chuẩn</th>
+              <th style="width:130px;">Author</th>
+              <th style="width:85px; text-align:center;">Created</th>
+              <th style="width:85px; text-align:center;">Modified</th>
+              <th style="width:80px; text-align:center;">Loại</th>
+              <th style="width:75px; text-align:center;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-groups">
+            <!-- Rendered dynamically by JavaScript -->
+          </tbody>
+        </table>
+
+        <div style="margin-top:16px; background:#f4f9fd; border:1px solid #bce0fd; border-radius:4px; padding:10px 14px; font-size:11.5px; line-height:1.6; color:#0c5460;">
+          <strong>💡 Hướng dẫn BTV:</strong>
+          <ul style="padding-left:18px; margin-top:4px;">
+            <li>Bấm icon <strong>Bút chì (✏️)</strong> tại bất kỳ nhóm nào để mở giao diện <em>Biên tập hàng loạt trực tiếp (Bulk Inline Editor)</em> cho toàn bộ các biển thuộc nhóm đó.</li>
+            <li>Bấm <strong>[+ Tạo nhóm mới]</strong> để thêm nhóm và kéo thả tải lên nhiều ảnh biển báo cùng lúc.</li>
+            <li>Bấm icon <strong>Xoá (❌)</strong> để xoá nhóm; hệ thống sẽ hiển thị cảnh báo xác nhận xoá toàn bộ chi tiết biển con trong nhóm.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- VIEW 2: SỬA NHÓM & BULK INLINE EDITOR HÀNG LOẠT -->
+      <!-- ======================================================== -->
+      <section id="view-bulk-editor" style="display:none;">
+        <!-- Top Toolbar in Editor -->
+        <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:4px; padding:12px 16px; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid #e2e2e2; padding-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button class="btn-classic" onclick="App.navigate('list')">
+                <span>&lt;&lt;</span> Danh sách nhóm
+              </button>
+              <span style="color:#666;">|</span>
+              <strong style="color:#bd081c; font-size:14px;" id="editor-group-title-header">Biên tập Nhóm</strong>
+              <span class="badge-count" id="editor-item-count-badge">0 item</span>
+            </div>
+            <div>
+              <button class="btn-primary-green" onclick="App.addNewItemToEditor()">
+                <strong>+ Thêm biển mới vào nhóm này</strong>
+              </button>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+            <div>
+              <label style="font-weight:bold; display:block; margin-bottom:2px;">Tên nhóm: <span style="color:#c00;">*</span></label>
+              <input type="text" id="edit-group-name" style="width:280px; font-weight:bold; color:#0055aa; font-size:13px;" oninput="App.markModified()" />
+            </div>
+            <div>
+              <label style="font-weight:bold; display:block; margin-bottom:2px;">Mã nhóm:</label>
+              <input type="text" id="edit-group-code" style="width:150px; background:#f0f0f0;" readonly />
+            </div>
+            <div>
+              <label style="font-weight:bold; display:block; margin-bottom:2px;">Phân loại:</label>
+              <select id="edit-group-type" style="width:160px;" onchange="App.markModified()">
+                <option value="Biển báo giao thông">Biển báo giao thông</option>
+                <option value="Vạch kẻ đường">Vạch kẻ đường</option>
+                <option value="Biển cao tốc">Biển cao tốc</option>
+                <option value="Thiết bị báo hiệu">Thiết bị báo hiệu</option>
+                <option value="Biểu tượng">Biểu tượng</option>
+              </select>
+            </div>
+            <div style="flex:1;">
+              <label style="font-weight:bold; display:block; margin-bottom:2px;">Mô tả nhóm:</label>
+              <input type="text" id="edit-group-desc" style="width:100%;" oninput="App.markModified()" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter items inside group -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <strong style="font-size:13px;" id="editor-listing-summary">Danh sách chi tiết biển trong nhóm:</strong>
+            <span style="color:#666; font-size:11.5px;">(BTV sửa trực tiếp từng trường thông tin, link biển liên quan & 600 câu hỏi, rồi bấm Lưu)</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <input type="text" id="search-in-group-input" placeholder="🔍 Lọc nhanh theo tên hoặc mã biển..." style="width:260px;" oninput="App.filterItemsInEditor()" />
+          </div>
+        </div>
+
+        <!-- Container for Bulk Item Cards -->
+        <div id="bulk-items-container">
+          <!-- Rendered dynamically by JavaScript -->
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- VIEW 3: THÊM NHÓM MỚI & UPLOAD ẢNH HÀNG LOẠT -->
+      <!-- ======================================================== -->
+      <section id="view-create-group" style="display:none;">
+        <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:4px; padding:12px 16px; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid #e2e2e2; padding-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button class="btn-classic" onclick="App.navigate('list')">
+                <span>&lt;&lt;</span> Danh sách nhóm
+              </button>
+              <span style="color:#666;">|</span>
+              <strong style="color:#107c41; font-size:14px;">Thêm Nhóm biển báo mới & Upload ảnh hàng loạt</strong>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+            <div>
+              <label style="font-weight:bold; display:block; margin-bottom:2px;">Tên nhóm mới: <span style="color:#c00;">*</span></label>
+              <input type="text" id="create-group-name" placeholder="Ví dụ: Nhóm Biển chỉ dẫn du lịch đối ngoại..." style="width:310px; font-weight:bold; font-size:13px;" />
+            </div>
+            <div>
+              <label style="font-weight:bold; display:block; margin-bottom:2px;">Mã nhóm:</label>
+              <input type="text" id="create-group-code" placeholder="NHOM_DU_LICH..." style="width:160px;" />
+            </div>
+            <div>
+              <label style="font-weight:bold; display:block; margin-bottom:2px;">Phân loại:</label>
+              <select id="create-group-type" style="width:160px;">
+                <option value="Biển chỉ dẫn (Mã I)">Biển chỉ dẫn (Mã I)</option>
+                <option value="Biển báo cấm (Mã P)">Biển báo cấm (Mã P)</option>
+                <option value="Biển nguy hiểm (Mã W)">Biển nguy hiểm (Mã W)</option>
+                <option value="Biển hiệu lệnh (Mã R)">Biển hiệu lệnh (Mã R)</option>
+                <option value="Vạch kẻ đường (Mã G)">Vạch kẻ đường (Mã G)</option>
+              </select>
+            </div>
+            <div style="flex:1;">
+              <label style="font-weight:bold; display:block; margin-bottom:2px;">Mô tả nhóm:</label>
+              <input type="text" id="create-group-desc" placeholder="Mô tả phạm vi áp dụng theo quy chuẩn..." style="width:100%;" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Multi-file Upload Dropzone -->
+        <div style="border:2px dashed #0066cc; background:#f4f8fc; border-radius:6px; padding:24px; text-align:center; margin-bottom:16px;" id="create-dropzone">
+          <div style="font-size:36px; margin-bottom:6px;">☁️ ⬆️</div>
+          <div style="font-size:14px; font-weight:bold; color:#004080; margin-bottom:4px;">
+            KÉO VÀ THẢ NHIỀU FILE ẢNH BIỂN BÁO VÀO ĐÂY HOẶC CLICK ĐỂ CHỌN NHIỀU FILE
+          </div>
+          <div style="font-size:11.5px; color:#666; margin-bottom:12px;">
+            Mỗi file ảnh tải lên sẽ tự động tạo thành 1 form chi tiết biển bên dưới để BTV nhập tên biển, title, nội dung và liên kết.
+          </div>
+          <input type="file" id="create-file-input" multiple accept="image/*" style="display:none;" onchange="App.handleMultiFileUpload(this.files)" />
+          <button class="btn-classic" style="background:#fff; border-color:#0066cc; color:#0066cc; font-weight:bold; padding:5px 18px;" onclick="document.getElementById('create-file-input').click()">
+            📁 Chọn nhiều ảnh từ máy tính (Multi-select)
+          </button>
+        </div>
+
+        <!-- Auto-generated Items List from Upload -->
+        <h4 style="margin-bottom:8px; color:#111; font-size:13px;">
+          Danh sách các chi tiết biển vừa tải lên:
+        </h4>
+        <div id="create-items-container">
+          <div style="text-align:center; padding:30px; background:#fafafa; border:1px solid #ddd; border-radius:4px; color:#888;" id="create-empty-hint">
+            Chưa có ảnh nào được tải lên. Hãy kéo thả ảnh vào khu vực phía trên hoặc bấm nút chọn file!
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- STICKY BOTTOM PIN BAR -->
+  <!-- ======================================================== -->
+  <div class="bottom-pin-bar" id="bottom-pin-bar" style="display:none;">
+    <div class="pin-info">
+      <span style="font-size:18px;">💾</span>
+      <div>
+        <strong style="color:#fff;" id="pin-group-title">Phiên làm việc: Biển báo cấm</strong>
+        <span style="color:#ffc107; margin-left:8px;" id="pin-change-status">• Đã thay đổi dữ liệu</span>
+        <span style="color:#aaa; font-size:11px; margin-left:8px;" id="pin-auto-save-time">(Tự động lưu nháp lúc 15:30)</span>
+      </div>
+    </div>
+    <div class="pin-actions">
+      <button class="btn-classic" style="color:#fff; background:#444; border-color:#222;" onclick="App.cancelEditor()">
+        Hủy bỏ
+      </button>
+      <button class="btn-classic" style="background:#fff;" onclick="App.previewUserView()">
+        👁️ Xem trước
+      </button>
+      <button class="btn-primary-red" id="btn-save-all" style="font-size:13px; padding:7px 24px;" onclick="App.saveCurrentGroup()">
+        💾 LƯU TẤT CẢ THAY ĐỔI (SAVE ALL)
+      </button>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: XÁC NHẬN XOÁ NHÓM & TOÀN BỘ CHI TIẾT BIỂN CON -->
+  <!-- ======================================================== -->
+  <div class="modal-overlay" id="modal-delete" style="display:none;">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:8px; color:#c00;">
+          <span style="font-size:20px;">⚠️</span>
+          <span>Xác nhận xoá Nhóm biển báo & Báo hiệu đường bộ</span>
+        </div>
+        <span style="cursor:pointer; font-size:18px; color:#666;" onclick="App.closeDeleteModal()">×</span>
+      </div>
+
+      <div class="modal-body">
+        <div style="font-size:15px; font-weight:bold; color:#111; line-height:1.5; margin-bottom:12px;">
+          “Việc xoá nhóm sẽ xoá tất cả các chi tiết biển trong nhóm, bạn có đồng ý?”
+        </div>
+
+        <div style="background:#fff5f5; border:1px solid #fed7d7; border-radius:4px; padding:12px 14px; margin-top:12px;">
+          <div style="color:#c53030; font-weight:bold; font-size:12.5px; margin-bottom:8px;">
+            🚨 Chi tiết phạm vi ảnh hưởng khi xoá:
+          </div>
+          <ul style="padding-left:18px; line-height:1.6; font-size:12px; color:#4a5568;">
+            <li>Nhóm bị xoá: <strong style="color:#c53030;" id="modal-delete-group-name">...</strong> (ID: <code id="modal-delete-group-id">...</code>)</li>
+            <li>Toàn bộ <strong style="color:#c53030;" id="modal-delete-item-count">0</strong> chi tiết biển báo trong nhóm này sẽ <strong>bị xoá hoàn toàn</strong> khỏi hệ thống.</li>
+            <li>Các liên kết trong kho <em>600 câu hỏi lý thuyết</em> liên quan tới các biển này sẽ tự động được gỡ bỏ.</li>
+            <li>⚠️ Thao tác này là vĩnh viễn và không thể khôi phục sau khi xác nhận.</li>
+          </ul>
+        </div>
+
+        <div style="margin-top:14px; font-size:12px; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="chk-confirm-delete" checked />
+          <label for="chk-confirm-delete" style="color:#333; font-weight:bold; cursor:pointer;">
+            Tôi đã đọc kỹ và xác nhận đồng ý xoá vĩnh viễn Nhóm này cùng tất cả các chi tiết biển báo con.
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-classic" style="padding:6px 14px;" onclick="App.closeDeleteModal()">
+          Hủy bỏ
+        </button>
+        <button class="btn-primary-red" style="padding:6px 18px; font-size:12px;" onclick="App.confirmDeleteGroup()">
+          🗑️ Đồng ý xoá (Xoá nhóm & tất cả biển con)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- App Script -->
+  <script src="app.js"></script>
+</body>
+</html>

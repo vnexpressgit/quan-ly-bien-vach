@@ -1,0 +1,20 @@
+{
+  "name": "quan-ly-bien-vach",
+  "version": "1.0.0",
+  "description": "Hệ thống Quản lý Nhóm Biển Báo & Vạch Kẻ Đường - VnExpress CMS",
+  "main": "cms-quan-ly-nhom-bien/server.js",
+  "scripts": {
+    "start": "node cms-quan-ly-nhom-bien/server.js",
+    "seed": "node cms-quan-ly-nhom-bien/data/seed.js"
+  },
+  "keywords": [
+    "vnexpress",
+    "cms",
+    "traffic-signs",
+    "bien-bao-giao-thong",
+    "vach-ke-duong",
+    "qcvn41-2019"
+  ],
+  "author": "VnExpress",
+  "license": "ISC"
+}
